@@ -1,13 +1,14 @@
 import tkinter as tk
 from tkinter import ttk
 from pytube import YouTube
+import threading
 
 class VideoDownloader:
     def __init__(self, master):
         self.website = "YouTube"
         self.website_options = ["YouTube", "TikTok"]
         self.res = "Highest Resolution"
-        self.res_options = ["Highest Resolution", "1080p", "720p", "480p", "240p"]
+        self.res_options = ["Highest Resolution", "720p", "480p", "240p"]
         self.error_label_created = False
         self.downloading_label_created = False
         self.downloaded_label_created = False
@@ -51,20 +52,63 @@ class VideoDownloader:
 
     def download_video(self):
         url = self.url_entry.get()
+        resolution = self.res_var.get()
+
         if url:
             try:
                 yt = YouTube(url)
-                video_stream = yt.streams.get_highest_resolution()
-                print(f"Downloading: {yt.title}")
-                video_stream.download('.')
-                print("Download complete!")
-
-                self.error_label.grid_forget()
-                self.error_label_created = False
+                download_thread = threading.Thread(target=self.download_in_thread, args=(yt, resolution))
+                download_thread.start()
             except Exception as e:
                 self.create_error_label()
         else:
             self.create_error_label()
+
+    def download_in_thread(self, yt, resolution):
+        try:
+            if resolution == "Highest Resolution":
+                video_stream = yt.streams.get_highest_resolution()
+            else:
+                video_stream = yt.streams.filter(res=resolution).first()
+
+            if self.error_label_created:
+                self.error_label.grid_forget()
+                self.error_label_created = False
+            
+            print(f"Downloading: {yt.title} in {resolution}")
+            self.show_downloading_label()
+
+            video_stream.download('.')
+            print("Download complete!")
+            self.hide_downloading_label()
+            self.show_downloaded_label()
+            self.master.after(2500, self.hide_downloaded_label)
+
+        except Exception as e:
+            self.hide_downloading_label()
+            self.create_error_label()
+
+    def show_downloading_label(self):
+        if not self.downloading_label_created:
+            self.downloading_label = ttk.Label(self.downloader_frame, text="Downloading...", font=("Arial", 10), foreground="blue")
+            self.downloading_label.grid(row=4, column=0, pady=5)
+            self.downloading_label_created = True
+        else:
+            self.downloading_label.grid(row=4, column=0, pady=5)
+
+    def hide_downloading_label(self):
+        self.downloading_label.grid_forget()
+
+    def show_downloaded_label(self):
+        if not self.downloaded_label_created:
+            self.downloaded_label = ttk.Label(self.downloader_frame, text="Downloaded", font=("Arial", 10), foreground="green")
+            self.downloaded_label.grid(row=4, column=0, pady=5)
+            self.downloaded_label_created = True
+        else:
+            self.downloaded_label.grid(row=4, column=0, pady=5)
+
+    def hide_downloaded_label(self):
+        self.downloaded_label.grid_forget()
 
     def create_error_label(self):
         if not self.error_label_created:
@@ -75,7 +119,7 @@ class VideoDownloader:
 def main():
     root = tk.Tk()
     app = VideoDownloader(root)
-    root.geometry("400x400")
+    root.geometry("315x300")
     root.mainloop()
 
 if __name__ == "__main__":
